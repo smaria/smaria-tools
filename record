@@ -1,0 +1,60 @@
+#!/bin/bash
+# make timestamped notes,
+# note timestamps of video recordings
+# open file: record $filename
+# -tv $video output : write timestamp of video recording in message
+# -m "$message": add timestamp + message to notes
+lockfile="/tmp/lockrecordvim"
+servername="record"
+
+writemessage () {
+  if [ -f "$lockfile" ]
+  then
+    timestamp=$(date +%d/%m/%Y\ %H:%M:%S)
+    vim --servername $servername --remote-send "<ESC><ESC>Go$timestamp: $1<ESC>"
+  else
+    echo "vim notes not running"
+  fi
+
+}
+
+case "$1" in
+  --help)
+    echo "Experiment notes:"
+    echo "to record notes, create and open new file with $filename option"
+    echo "as long as this file is open, notes can be added to the file from any terminal"
+    echo "you don't need to know vim, only when you want to close and save your log file"
+    echo "enter the vim 'commmand mode' by pressing the <escape> key"
+    echo "then enter ': wq' and press <Enter> to save and quit"
+    echo "$filename  : create and open new file"
+    echo "--help: print this help"
+    echo "-tv $videoport: record video and add timestamp to file"
+    echo "                (try 0 and 1 for videoport)
+    echo "-m $message: write timestamped message to file" 
+    ;;
+  -tv)
+    writemessage "new video recording"
+    filename=$(cat "$lockfile")
+    cvlc v4l2:///dev/video$2 --sout "#transcode{vcodec=mp4v,vb=1024,scale=1,acodec=mpga,ab=192,channels=2}:duplicate{dst=display,dst=std{access=file,mux=mp4,dst="${filename}_$(date +%Y-%m-%d_%H:%M:%S).mpg"}}"
+    ;;
+  -m)
+    shift
+    writemessage "$*" 
+    ;;
+  *)
+    filename="$1"
+    if [ -f "$lockfile" ]
+    then
+      echo "vim notes already running"
+    else
+      path=$(pwd)
+      echo "${path}/${filename}" > "$lockfile"
+      vim --servername $servername "$filename"
+      rm "$lockfile"
+    fi
+    
+    ;;
+esac
+
+# check date
+# record video
